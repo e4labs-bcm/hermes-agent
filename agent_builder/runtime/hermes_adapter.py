@@ -1,0 +1,94 @@
+"""Hermes runtime adapter for the Agent Builder MVP.
+
+The adapter keeps Hermes behind a product contract. Tests use contract mode so
+no provider call is required, while live mode can later instantiate AIAgent with
+an already-resolved capability surface.
+"""
+
+from __future__ import annotations
+
+from typing import Any, Literal
+
+from agent_builder.control_plane.models import CapabilitySurface, ResolvedTurnContext
+
+
+RuntimeMode = Literal["contract", "live"]
+
+
+class HermesRuntimeAdapter:
+    def __init__(self, mode: RuntimeMode = "contract") -> None:
+        if mode not in {"contract", "live"}:
+            raise ValueError(f"unsupported HermesRuntimeAdapter mode: {mode}")
+        self.mode = mode
+
+    def _require_surface(self, surface: CapabilitySurface | None) -> CapabilitySurface:
+        if surface is None:
+            raise ValueError("CapabilitySurface is required before invoking Hermes runtime")
+        return surface
+
+    def runtime_metadata(
+        self, *, context: ResolvedTurnContext, surface: CapabilitySurface
+    ) -> dict[str, Any]:
+        return {
+            "tenant_id": context.tenant_id,
+            "workspace_id": context.workspace_id,
+            "agent_instance_id": context.agent_instance_id,
+            "internal_user_id": context.internal_user_id,
+            "session_key": context.session_key,
+            "memory_scope": context.memory_scope,
+            "policy_snapshot_id": surface.policy_snapshot_id,
+            "schema_digest": surface.schema_digest,
+        }
+
+    def build_live_agent_kwargs(
+        self, *, context: ResolvedTurnContext, surface: CapabilitySurface | None
+    ) -> dict[str, Any]:
+        surface = self._require_surface(surface)
+        return {
+            "enabled_toolsets": list(surface.allowed_toolsets),
+            "skip_context_files": True,
+            "skip_memory": True,
+            "platform": "agent_builder",
+            "session_id": context.session_key,
+        }
+
+    def run_contract(
+        self,
+        *,
+        context: ResolvedTurnContext,
+        surface: CapabilitySurface | None,
+        message: str,
+    ) -> dict[str, Any]:
+        surface = self._require_surface(surface)
+        agent_kwargs = self.build_live_agent_kwargs(context=context, surface=surface)
+        return {
+            "mode": "contract",
+            "message": message,
+            "would_create_agent_with": agent_kwargs,
+            "runtime_metadata": self.runtime_metadata(context=context, surface=surface),
+        }
+
+    def run_live(
+        self,
+        *,
+        context: ResolvedTurnContext,
+        surface: CapabilitySurface | None,
+        message: str,
+    ) -> dict[str, Any]:
+        """Instantiate Hermes in live mode.
+
+        This path is intentionally not used by unit tests because it may call an
+        external LLM provider. It remains small and auditable for the next MVP
+        stage.
+        """
+
+        surface = self._require_surface(surface)
+        from run_agent import AIAgent  # Imported lazily to keep contract tests offline.
+
+        agent = AIAgent(**self.build_live_agent_kwargs(context=context, surface=surface))
+        response = agent.chat(message)
+        return {
+            "mode": "live",
+            "response": response,
+            "runtime_metadata": self.runtime_metadata(context=context, surface=surface),
+        }
