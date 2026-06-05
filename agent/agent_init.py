@@ -148,6 +148,7 @@ def init_agent(
     tool_delay: float = 1.0,
     enabled_toolsets: List[str] = None,
     disabled_toolsets: List[str] = None,
+    allowed_tools: List[str] = None,
     save_trajectories: bool = False,
     verbose_logging: bool = False,
     quiet_mode: bool = False,
@@ -907,6 +908,7 @@ def init_agent(
     agent.tools = _ra().get_tool_definitions(
         enabled_toolsets=enabled_toolsets,
         disabled_toolsets=disabled_toolsets,
+        allowed_tools=allowed_tools,
         quiet_mode=agent.quiet_mode,
     )
     

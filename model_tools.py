@@ -266,6 +266,7 @@ def get_tool_definitions(
     disabled_toolsets: Optional[List[str]] = None,
     quiet_mode: bool = False,
     skip_tool_search_assembly: bool = False,
+    allowed_tools: Optional[List[str]] = None,
 ) -> List[Dict[str, Any]]:
     """
     Get tool definitions for model API calls with toolset-based filtering.
@@ -276,6 +277,7 @@ def get_tool_definitions(
         enabled_toolsets: Only include tools from these toolsets.
         disabled_toolsets: Exclude tools from these toolsets (if enabled_toolsets is None).
         quiet_mode: Suppress status prints.
+        allowed_tools: Optional tool-name allowlist layered on top of toolsets.
         skip_tool_search_assembly: When True, return the pre-assembly tool list
             (raw schemas for every enabled tool). Used internally by the
             tool_search / tool_describe bridge handlers so they can read the
@@ -306,6 +308,7 @@ def get_tool_definitions(
             frozenset(disabled_toolsets) if disabled_toolsets else None,
             registry._generation,
             cfg_fp,
+            frozenset(allowed_tools) if allowed_tools is not None else None,
             bool(os.environ.get("HERMES_KANBAN_TASK")),
             bool(skip_tool_search_assembly),
         )
@@ -320,7 +323,8 @@ def get_tool_definitions(
             return list(cached)
 
     result = _compute_tool_definitions(enabled_toolsets, disabled_toolsets, quiet_mode,
-                                       skip_tool_search_assembly=skip_tool_search_assembly)
+                                       skip_tool_search_assembly=skip_tool_search_assembly,
+                                       allowed_tools=allowed_tools)
     if quiet_mode:
         # Cache the freshly-computed list, but hand callers a shallow copy so
         # downstream mutations (e.g. run_agent appending memory/LCM tool
@@ -339,6 +343,7 @@ def _compute_tool_definitions(
     disabled_toolsets: Optional[List[str]] = None,
     quiet_mode: bool = False,
     skip_tool_search_assembly: bool = False,
+    allowed_tools: Optional[List[str]] = None,
 ) -> List[Dict[str, Any]]:
     """Uncached implementation of :func:`get_tool_definitions`."""
     # Determine which tool names the caller wants
@@ -370,6 +375,8 @@ def _compute_tool_definitions(
         # Default: start with everything
         from toolsets import get_all_toolsets
         for ts_name in get_all_toolsets():
+            if ts_name == "agent_builder_erp_read":
+                continue
             tools_to_include.update(resolve_toolset(ts_name))
 
     # Always apply disabled toolsets as a subtraction step at the end.
@@ -396,6 +403,9 @@ def _compute_tool_definitions(
     # all check the tool registry for plugin-provided toolsets.  No bypass
     # needed; plugins respect enabled_toolsets / disabled_toolsets like any
     # other toolset.
+
+    if allowed_tools is not None:
+        tools_to_include.intersection_update(set(allowed_tools))
 
     # Ask the registry for schemas (only returns tools whose check_fn passes)
     filtered_tools = registry.get_definitions(tools_to_include, quiet=quiet_mode)

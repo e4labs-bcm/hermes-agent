@@ -41,7 +41,7 @@ def test_session_key_generation_includes_enterprise_boundaries():
         thread_id=None,
     )
 
-    assert key == "tenant_demo:workspace_demo:agent_sales_assistant:user_001:whatsapp:default"
+    assert key.startswith("ab_session:sha256:")
 
 
 def test_memory_scope_generation_is_user_agent_and_session_scoped():
@@ -53,7 +53,7 @@ def test_memory_scope_generation_is_user_agent_and_session_scoped():
         scope="session",
     )
 
-    assert scope == "tenant_demo/workspace_demo/agent_sales_assistant/user_001/session"
+    assert scope.startswith("ab_memory:sha256:")
 
 
 def test_all_boundary_models_construct_with_expected_fields():

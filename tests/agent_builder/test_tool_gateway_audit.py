@@ -1,4 +1,5 @@
 import json
+from dataclasses import replace
 
 from agent_builder.control_plane.capability import DemoCapabilityResolver
 from agent_builder.control_plane.identity import DemoIdentityResolver
@@ -68,9 +69,9 @@ def test_unauthorized_tool_is_blocked_and_audited(tmp_path):
     assert event["side_effect_committed"] is False
 
 
-def test_invalid_tenant_is_blocked_and_audited(tmp_path):
-    gateway, _, surface, audit = make_gateway(tmp_path)
-    invalid_context = DemoIdentityResolver().resolve_turn(make_message(tenant_id="tenant_other"))
+def test_invalid_context_is_blocked_and_audited(tmp_path):
+    gateway, valid_context, surface, audit = make_gateway(tmp_path)
+    invalid_context = replace(valid_context, tenant_id="tenant_other")
 
     result = gateway.call(
         context=invalid_context,
@@ -80,7 +81,7 @@ def test_invalid_tenant_is_blocked_and_audited(tmp_path):
         tool_call_id="call_004",
     )
 
-    assert result["error"] == "tenant_not_authorized"
+    assert result["error"] == "context_not_authorized"
     event = audit.read_events()[0]
     assert event["status"] == "blocked"
     assert event["tenant_id"] == "tenant_other"

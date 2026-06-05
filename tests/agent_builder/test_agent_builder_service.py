@@ -21,7 +21,7 @@ def test_service_run_contract_returns_backend_response_shape(tmp_path):
 
     assert response["status"] == "ok"
     assert response["mode"] == "contract"
-    assert response["session_key"] == "tenant_demo:workspace_demo:agent_sales_assistant:user_001:whatsapp:default"
+    assert response["session_key"].startswith("ab_session:sha256:")
     assert response["allowed_toolsets"] == ["agent_builder_erp_read"]
     assert response["allowed_tools"] == ["erp_get_customer", "erp_list_orders"]
     assert len(response["tool_events"]) == 2
@@ -39,7 +39,7 @@ def test_service_rejects_live_safe_without_env_gate(tmp_path, monkeypatch):
     assert response["error"] == "live_safe_requires_explicit_env_gate"
 
 
-def test_service_returns_controlled_error_when_gateway_blocks_customer_lookup(tmp_path):
+def test_service_returns_controlled_error_when_scope_is_denied(tmp_path):
     payload = make_payload()
     payload["tenant_id"] = "tenant_blocked"
     service = AgentBuilderService(audit_path=tmp_path / "events.jsonl")
@@ -47,7 +47,4 @@ def test_service_returns_controlled_error_when_gateway_blocks_customer_lookup(tm
     response = service.run(payload)
 
     assert response["status"] == "error"
-    assert response["error"] == "tool_gateway_blocked"
-    assert response["tool_name"] == "erp_get_customer"
-    assert response["gateway_error"] == "tenant_not_authorized"
-    assert response["tool_events"]
+    assert response["error"] == "identity_denied"

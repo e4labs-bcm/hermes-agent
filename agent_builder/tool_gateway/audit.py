@@ -32,3 +32,27 @@ class JsonlAuditLog:
 
     def events_for_session(self, session_key: str) -> list[dict[str, Any]]:
         return [event for event in self.read_events() if event.get("session_key") == session_key]
+
+    def _public_event(self, event: dict[str, Any]) -> dict[str, Any]:
+        public_fields = (
+            "event_id",
+            "run_id",
+            "tool_name",
+            "status",
+            "side_effect_committed",
+            "duration_ms",
+            "created_at",
+            "policy_snapshot_id",
+            "schema_digest",
+        )
+        return {field: event.get(field) for field in public_fields}
+
+    def public_events_for_session(self, session_key: str) -> list[dict[str, Any]]:
+        return [self._public_event(event) for event in self.events_for_session(session_key)]
+
+    def public_events_for_run(self, session_key: str, run_id: str) -> list[dict[str, Any]]:
+        return [
+            event
+            for event in self.public_events_for_session(session_key)
+            if event.get("run_id") == run_id
+        ]

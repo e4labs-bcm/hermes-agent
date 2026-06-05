@@ -47,8 +47,15 @@ class HermesRuntimeAdapter:
         self, *, context: ResolvedTurnContext, surface: CapabilitySurface | None
     ) -> dict[str, Any]:
         surface = self._require_surface(surface)
+        from toolsets import get_all_toolsets
+
+        disabled_toolsets = sorted(
+            toolset for toolset in get_all_toolsets() if toolset not in surface.allowed_toolsets
+        )
         return {
             "enabled_toolsets": list(surface.allowed_toolsets),
+            "disabled_toolsets": disabled_toolsets,
+            "allowed_tools": list(surface.allowed_tools),
             "skip_context_files": True,
             "skip_memory": True,
             "platform": "agent_builder",
@@ -78,6 +85,7 @@ class HermesRuntimeAdapter:
         surface: CapabilitySurface | None,
         gateway: ToolGateway,
         message: str,
+        run_id: str | None = None,
     ) -> dict[str, Any]:
         """Instantiate Hermes in explicitly gated live-safe mode.
 
@@ -91,7 +99,7 @@ class HermesRuntimeAdapter:
 
         agent = AIAgent(**self.build_live_agent_kwargs(context=context, surface=surface))
         token = agent_builder_tool_context.set(
-            {"context": context, "surface": surface, "gateway": gateway}
+            {"context": context, "surface": surface, "gateway": gateway, "run_id": run_id}
         )
         try:
             response = agent.chat(message)

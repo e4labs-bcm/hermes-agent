@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import hashlib
-
 from agent_builder.control_plane.models import (
     IncomingMessage,
     ResolvedIdentity,
@@ -14,6 +12,10 @@ from agent_builder.control_plane.models import (
 
 
 DEMO_POLICY_SNAPSHOT_ID = "policy_demo_readonly_v1"
+
+
+class IdentityDenied(RuntimeError):
+    """Raised when an external identity is not authorized for the demo scope."""
 
 
 class DemoIdentityResolver:
@@ -33,8 +35,7 @@ class DemoIdentityResolver:
         key = (message.tenant_id, message.workspace_id, message.external_user_ref)
         internal_user_id = self._known_users.get(key)
         if internal_user_id is None:
-            digest = hashlib.sha256("|".join(key).encode("utf-8")).hexdigest()[:12]
-            internal_user_id = f"user_{digest}"
+            raise IdentityDenied("external user is not authorized for this tenant/workspace")
         return ResolvedIdentity(
             tenant_id=message.tenant_id,
             workspace_id=message.workspace_id,

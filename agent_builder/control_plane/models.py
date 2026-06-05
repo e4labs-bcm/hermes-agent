@@ -6,6 +6,8 @@ between a future product backend/control plane and Hermes as a private runtime.
 
 from __future__ import annotations
 
+import hashlib
+import json
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
@@ -23,6 +25,11 @@ def _normalize_thread(thread_id: str | None) -> str:
     return thread_id or "default"
 
 
+def _scope_digest(prefix: str, payload: dict[str, str]) -> str:
+    canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+    return f"{prefix}:sha256:{hashlib.sha256(canonical.encode('utf-8')).hexdigest()}"
+
+
 def build_session_key(
     *,
     tenant_id: str,
@@ -38,15 +45,15 @@ def build_session_key(
     thread/default so sessions never collapse across enterprise boundaries.
     """
 
-    parts = (
-        _require_non_empty(tenant_id, "tenant_id"),
-        _require_non_empty(workspace_id, "workspace_id"),
-        _require_non_empty(agent_instance_id, "agent_instance_id"),
-        _require_non_empty(internal_user_id, "internal_user_id"),
-        _require_non_empty(channel, "channel"),
-        _normalize_thread(thread_id),
-    )
-    return ":".join(parts)
+    payload = {
+        "tenant_id": _require_non_empty(tenant_id, "tenant_id"),
+        "workspace_id": _require_non_empty(workspace_id, "workspace_id"),
+        "agent_instance_id": _require_non_empty(agent_instance_id, "agent_instance_id"),
+        "internal_user_id": _require_non_empty(internal_user_id, "internal_user_id"),
+        "channel": _require_non_empty(channel, "channel"),
+        "thread_id": _normalize_thread(thread_id),
+    }
+    return _scope_digest("ab_session", payload)
 
 
 def build_memory_scope(
@@ -57,14 +64,14 @@ def build_memory_scope(
     internal_user_id: str,
     scope: str = "session",
 ) -> str:
-    parts = (
-        _require_non_empty(tenant_id, "tenant_id"),
-        _require_non_empty(workspace_id, "workspace_id"),
-        _require_non_empty(agent_instance_id, "agent_instance_id"),
-        _require_non_empty(internal_user_id, "internal_user_id"),
-        _require_non_empty(scope, "scope"),
-    )
-    return "/".join(parts)
+    payload = {
+        "tenant_id": _require_non_empty(tenant_id, "tenant_id"),
+        "workspace_id": _require_non_empty(workspace_id, "workspace_id"),
+        "agent_instance_id": _require_non_empty(agent_instance_id, "agent_instance_id"),
+        "internal_user_id": _require_non_empty(internal_user_id, "internal_user_id"),
+        "scope": _require_non_empty(scope, "scope"),
+    }
+    return _scope_digest("ab_memory", payload)
 
 
 @dataclass(frozen=True)
@@ -170,6 +177,7 @@ class ToolEvent:
     tool_name: str
     policy_snapshot_id: str
     schema_digest: str
+    run_id: str | None = None
     args_redacted: dict[str, Any] = field(default_factory=dict)
     result_redacted: dict[str, Any] = field(default_factory=dict)
     status: ToolEventStatus = "executed"

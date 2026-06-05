@@ -25,19 +25,17 @@ def _call_gateway(tool_name: str, args: dict[str, Any]) -> str:
         tool_name=tool_name,
         args=args,
         tool_call_id=f"hermes_{uuid.uuid4().hex}",
+        run_id=runtime_context.get("run_id"),
     )
     return json.dumps(result, ensure_ascii=False)
 
 
 def _get_customer_handler(args, **_kwargs):
-    return _call_gateway("erp_get_customer", {"customer_name": args["customer_name"]})
+    return _call_gateway("erp_get_customer", dict(args or {}))
 
 
 def _list_orders_handler(args, **_kwargs):
-    return _call_gateway(
-        "erp_list_orders",
-        {"customer_id": args["customer_id"], "status": args.get("status", "open")},
-    )
+    return _call_gateway("erp_list_orders", dict(args or {}))
 
 
 registry.register(
@@ -50,6 +48,7 @@ registry.register(
             "type": "object",
             "properties": {"customer_name": {"type": "string"}},
             "required": ["customer_name"],
+            "additionalProperties": False,
         },
     },
     handler=_get_customer_handler,
@@ -72,6 +71,7 @@ registry.register(
                 "status": {"type": "string", "default": "open"},
             },
             "required": ["customer_id"],
+            "additionalProperties": False,
         },
     },
     handler=_list_orders_handler,

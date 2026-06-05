@@ -40,6 +40,8 @@ def test_next_steps_contract_integration(tmp_path):
             str(audit_path),
             "--session-key",
             response["session_key"],
+            "--run-id",
+            response["run_id"],
         ],
         text=True,
         capture_output=True,

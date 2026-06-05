@@ -1,4 +1,6 @@
-from agent_builder.control_plane.identity import DemoIdentityResolver
+import pytest
+
+from agent_builder.control_plane.identity import DemoIdentityResolver, IdentityDenied
 from agent_builder.control_plane.models import IncomingMessage
 
 
@@ -25,15 +27,12 @@ def test_same_external_user_maps_to_same_internal_user():
     assert first.internal_user_id == second.internal_user_id == "user_001"
 
 
-def test_unknown_external_user_gets_stable_hash_user_id():
+def test_unknown_external_user_is_denied():
     resolver = DemoIdentityResolver()
-    message = make_message(external_user_ref="whatsapp:+551188887777")
+    message = make_message(external_user_ref="whatsapp:+551****7777")
 
-    first = resolver.resolve_identity(message)
-    second = resolver.resolve_identity(message)
-
-    assert first.internal_user_id == second.internal_user_id
-    assert first.internal_user_id.startswith("user_")
+    with pytest.raises(IdentityDenied):
+        resolver.resolve_identity(message)
 
 
 def test_resolved_turn_context_contains_enterprise_session_key_and_memory_scope():
@@ -41,18 +40,26 @@ def test_resolved_turn_context_contains_enterprise_session_key_and_memory_scope(
 
     context = resolver.resolve_turn(make_message())
 
-    assert context.session_key == "tenant_demo:workspace_demo:agent_sales_assistant:user_001:whatsapp:default"
-    assert context.memory_scope == "tenant_demo/workspace_demo/agent_sales_assistant/user_001/session"
+    assert context.session_key.startswith("ab_session:sha256:")
+    assert context.memory_scope.startswith("ab_memory:sha256:")
     assert context.policy_snapshot_id == "policy_demo_readonly_v1"
 
 
 def test_different_tenants_do_not_produce_same_session_key():
-    resolver = DemoIdentityResolver()
+    first = DemoIdentityResolver().resolve_turn(make_message(tenant_id="tenant_demo"))
 
-    first = resolver.resolve_turn(make_message(tenant_id="tenant_demo"))
-    second = resolver.resolve_turn(make_message(tenant_id="tenant_other"))
+    from agent_builder.control_plane.models import build_session_key
 
-    assert first.session_key != second.session_key
+    second = build_session_key(
+        tenant_id="tenant_other",
+        workspace_id="workspace_demo",
+        agent_instance_id="agent_sales_assistant",
+        internal_user_id="user_001",
+        channel="whatsapp",
+        thread_id=None,
+    )
+
+    assert first.session_key != second
 
 
 def test_different_agent_instances_do_not_produce_same_session_key():

@@ -29,6 +29,8 @@ def test_audit_events_command_returns_session_events(tmp_path):
             str(audit_path),
             "--session-key",
             run_response["session_key"],
+            "--run-id",
+            run_response["run_id"],
         ],
         text=True,
         capture_output=True,
@@ -37,5 +39,6 @@ def test_audit_events_command_returns_session_events(tmp_path):
 
     payload = json.loads(completed.stdout)
     assert payload["session_key"] == run_response["session_key"]
+    assert payload["run_id"] == run_response["run_id"]
     assert len(payload["events"]) == 2
     assert all(event["side_effect_committed"] is False for event in payload["events"])
