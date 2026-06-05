@@ -26,6 +26,31 @@ class AgentBuilderService:
         self.capability_resolver = DemoCapabilityResolver()
         self.gateway = ToolGateway(self.audit)
 
+    def _session_event_ids(self, session_key: str) -> list[str]:
+        return [event["event_id"] for event in self.audit.events_for_session(session_key)]
+
+    def _gateway_error_response(
+        self,
+        *,
+        context,
+        surface,
+        tool_name: str,
+        result: dict[str, Any],
+    ) -> dict[str, Any]:
+        return {
+            "status": "error",
+            "error": "tool_gateway_blocked",
+            "gateway_error": result.get("error", "unknown_gateway_error"),
+            "tool_name": tool_name,
+            "session_key": context.session_key,
+            "policy_snapshot_id": surface.policy_snapshot_id,
+            "schema_digest": surface.schema_digest,
+            "allowed_toolsets": list(surface.allowed_toolsets),
+            "allowed_tools": list(surface.allowed_tools),
+            "tool_events": self._session_event_ids(context.session_key),
+            "audit_event_path": str(self.audit.path),
+        }
+
     def run(self, payload: dict[str, Any]) -> dict[str, Any]:
         mode = payload.get("mode", "contract")
         if mode not in {"contract", "live_safe"}:
@@ -56,6 +81,14 @@ class AgentBuilderService:
             args={"customer_name": "ACME"},
             tool_call_id="service_customer_001",
         )
+        if "error" in customer_result:
+            return self._gateway_error_response(
+                context=context,
+                surface=surface,
+                tool_name="erp_get_customer",
+                result=customer_result,
+            )
+
         orders_result = self.gateway.call(
             context=context,
             surface=surface,
@@ -63,6 +96,13 @@ class AgentBuilderService:
             args={"customer_id": customer_result["customer"]["id"], "status": "open"},
             tool_call_id="service_orders_001",
         )
+        if "error" in orders_result:
+            return self._gateway_error_response(
+                context=context,
+                surface=surface,
+                tool_name="erp_list_orders",
+                result=orders_result,
+            )
 
         if mode == "contract":
             adapter_result = HermesRuntimeAdapter(mode="contract").run_contract(

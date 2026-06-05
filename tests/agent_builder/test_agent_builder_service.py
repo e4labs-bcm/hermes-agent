@@ -37,3 +37,17 @@ def test_service_rejects_live_safe_without_env_gate(tmp_path, monkeypatch):
 
     assert response["status"] == "error"
     assert response["error"] == "live_safe_requires_explicit_env_gate"
+
+
+def test_service_returns_controlled_error_when_gateway_blocks_customer_lookup(tmp_path):
+    payload = make_payload()
+    payload["tenant_id"] = "tenant_blocked"
+    service = AgentBuilderService(audit_path=tmp_path / "events.jsonl")
+
+    response = service.run(payload)
+
+    assert response["status"] == "error"
+    assert response["error"] == "tool_gateway_blocked"
+    assert response["tool_name"] == "erp_get_customer"
+    assert response["gateway_error"] == "tenant_not_authorized"
+    assert response["tool_events"]
