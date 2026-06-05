@@ -29,3 +29,6 @@ class JsonlAuditLog:
                 if line.strip():
                     events.append(json.loads(line))
         return events
+
+    def events_for_session(self, session_key: str) -> list[dict[str, Any]]:
+        return [event for event in self.read_events() if event.get("session_key") == session_key]

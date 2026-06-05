@@ -154,6 +154,12 @@ TOOLSETS = {
         "tools": ["terminal", "process"],
         "includes": []
     },
+
+    "agent_builder_erp_read": {
+        "description": "Read-only Agent Builder demo ERP tools for controlled enterprise-agent runs",
+        "tools": ["erp_get_customer", "erp_list_orders"],
+        "includes": []
+    },
     
     "moa": {
         "description": "Advanced reasoning and problem-solving tools",

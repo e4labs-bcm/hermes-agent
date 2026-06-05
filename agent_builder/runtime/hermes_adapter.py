@@ -1,8 +1,8 @@
 """Hermes runtime adapter for the Agent Builder MVP.
 
 The adapter keeps Hermes behind a product contract. Tests use contract mode so
-no provider call is required, while live mode can later instantiate AIAgent with
-an already-resolved capability surface.
+no provider call is required, while live_safe mode can instantiate AIAgent with
+an already-resolved capability surface and a scoped ToolGateway context.
 """
 
 from __future__ import annotations
@@ -10,14 +10,17 @@ from __future__ import annotations
 from typing import Any, Literal
 
 from agent_builder.control_plane.models import CapabilitySurface, ResolvedTurnContext
+from agent_builder.runtime.tool_context import agent_builder_tool_context
+from agent_builder.tool_gateway.registry import ToolGateway
 
-
-RuntimeMode = Literal["contract", "live"]
+RuntimeMode = Literal["contract", "live_safe"]
 
 
 class HermesRuntimeAdapter:
     def __init__(self, mode: RuntimeMode = "contract") -> None:
-        if mode not in {"contract", "live"}:
+        if mode == "live":
+            raise ValueError("plain live mode is not supported; use live_safe")
+        if mode not in {"contract", "live_safe"}:
             raise ValueError(f"unsupported HermesRuntimeAdapter mode: {mode}")
         self.mode = mode
 
@@ -68,27 +71,34 @@ class HermesRuntimeAdapter:
             "runtime_metadata": self.runtime_metadata(context=context, surface=surface),
         }
 
-    def run_live(
+    def run_live_safe(
         self,
         *,
         context: ResolvedTurnContext,
         surface: CapabilitySurface | None,
+        gateway: ToolGateway,
         message: str,
     ) -> dict[str, Any]:
-        """Instantiate Hermes in live mode.
+        """Instantiate Hermes in explicitly gated live-safe mode.
 
-        This path is intentionally not used by unit tests because it may call an
-        external LLM provider. It remains small and auditable for the next MVP
-        stage.
+        This path is intentionally kept out of normal unit tests except through
+        a mocked AIAgent. Runtime-visible ERP tools receive only the scoped
+        Agent Builder context and service-owned gateway/audit object.
         """
 
         surface = self._require_surface(surface)
         from run_agent import AIAgent  # Imported lazily to keep contract tests offline.
 
         agent = AIAgent(**self.build_live_agent_kwargs(context=context, surface=surface))
-        response = agent.chat(message)
+        token = agent_builder_tool_context.set(
+            {"context": context, "surface": surface, "gateway": gateway}
+        )
+        try:
+            response = agent.chat(message)
+        finally:
+            agent_builder_tool_context.reset(token)
         return {
-            "mode": "live",
+            "mode": "live_safe",
             "response": response,
             "runtime_metadata": self.runtime_metadata(context=context, surface=surface),
         }
