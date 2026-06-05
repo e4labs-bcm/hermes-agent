@@ -1213,4 +1213,4 @@ Expected:
 
 ## Next authorized step
 
-Start with **Task 7.1: Extract a reusable Agent Builder service** using strict TDD. Do not start live-safe real provider calls until Phases 7 and 8 are complete and the user explicitly authorizes `AGENT_BUILDER_LIVE_SAFE=1`.
+Phases 7-10 have been implemented and locally verified. Continue with `docs/adk-hermes-integration-smoke-plan.md`, starting from PR review/merge context and then **Task 11.1: Add ADK payload validator**. Do not start live-safe real provider calls until the user explicitly authorizes `AGENT_BUILDER_LIVE_SAFE=1`.
