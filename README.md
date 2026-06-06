@@ -75,12 +75,15 @@ python3 -m agent_builder.api.local_smoke
 printf '%s' '{"tenant_id":"tenant_demo","workspace_id":"workspace_demo","agent_instance_id":"agent_sales_assistant","external_user_ref":"whatsapp:+551****9999","channel":"whatsapp","thread_id":null,"message":"Quais pedidos o cliente ACME tem em aberto?","mode":"contract"}' | python3 -m agent_builder.api.run_request
 ```
 
-Inspect audit events for a session:
+Inspect audit events for a run by copying `session_key`, `run_id`, and
+`audit_event_path` from the `run_request` output. Session keys are opaque
+sha256-backed values, not tenant/user-readable strings.
 
 ```bash
 python3 -m agent_builder.api.audit_events \
   --audit-path /path/to/events.jsonl \
-  --session-key 'tenant_demo:workspace_demo:agent_sales_assistant:user_001:whatsapp:default'
+  --session-key 'ab_session:sha256:...' \
+  --run-id 'run_...'
 ```
 
 ## Current non-goals

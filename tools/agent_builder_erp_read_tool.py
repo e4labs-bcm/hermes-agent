@@ -14,7 +14,7 @@ def _available() -> bool:
     return True
 
 
-def _call_gateway(tool_name: str, args: dict[str, Any]) -> str:
+def _call_gateway(tool_name: str, args: Any) -> str:
     runtime_context = agent_builder_tool_context.get()
     if runtime_context is None:
         return json.dumps({"error": "agent_builder_runtime_context_required"})
@@ -31,11 +31,11 @@ def _call_gateway(tool_name: str, args: dict[str, Any]) -> str:
 
 
 def _get_customer_handler(args, **_kwargs):
-    return _call_gateway("erp_get_customer", dict(args or {}))
+    return _call_gateway("erp_get_customer", args)
 
 
 def _list_orders_handler(args, **_kwargs):
-    return _call_gateway("erp_list_orders", dict(args or {}))
+    return _call_gateway("erp_list_orders", args)
 
 
 registry.register(

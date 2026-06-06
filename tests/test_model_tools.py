@@ -30,6 +30,19 @@ class TestHandleFunctionCall:
         assert "error" in result
         assert "totally_fake_tool_xyz" in result["error"]
 
+    def test_enabled_tools_blocks_unavailable_tool_before_registry_dispatch(self):
+        with patch("model_tools.registry.dispatch") as mock_dispatch:
+            result = json.loads(
+                handle_function_call(
+                    "terminal",
+                    {"command": "id"},
+                    enabled_tools=["erp_get_customer", "erp_list_orders"],
+                )
+            )
+
+        mock_dispatch.assert_not_called()
+        assert result["error"] == "Tool 'terminal' is not available in this session."
+
     def test_exception_returns_json_error(self):
         # Even if something goes wrong, should return valid JSON
         result = handle_function_call("web_search", None)  # None args may cause issues

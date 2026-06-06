@@ -2120,6 +2120,36 @@ class TestExecuteToolCalls:
         assert messages[0]["role"] == "tool"
         assert messages[0]["tool_call_id"] == "c1"
 
+    def test_restricted_session_blocks_unadvertised_tool_before_dispatch(self, agent):
+        agent.enabled_toolsets = ["agent_builder_erp_read"]
+        agent.disabled_toolsets = ["terminal"]
+        agent.valid_tool_names = {"erp_get_customer", "erp_list_orders"}
+        tc = _mock_tool_call(name="terminal", arguments='{"command":"id"}', call_id="c1")
+        mock_msg = _mock_assistant_msg(content="", tool_calls=[tc])
+        messages = []
+
+        with patch("run_agent.handle_function_call") as mock_hfc:
+            agent._execute_tool_calls(mock_msg, messages, "task-1")
+
+        mock_hfc.assert_not_called()
+        assert len(messages) == 1
+        assert messages[0]["role"] == "tool"
+        payload = json.loads(messages[0]["content"])
+        assert payload["error"] == "Tool 'terminal' is not available in this session."
+
+    def test_restricted_session_blocks_inline_runtime_tool_before_dispatch(self, agent):
+        agent.enabled_toolsets = ["agent_builder_erp_read"]
+        agent.valid_tool_names = {"erp_get_customer", "erp_list_orders"}
+        tc = _mock_tool_call(name="todo", arguments='{}', call_id="c1")
+        mock_msg = _mock_assistant_msg(content="", tool_calls=[tc])
+        messages = []
+
+        agent._execute_tool_calls(mock_msg, messages, "task-1")
+
+        assert len(messages) == 1
+        payload = json.loads(messages[0]["content"])
+        assert payload["error"] == "Tool 'todo' is not available in this session."
+
     def test_result_truncation_over_100k(self, agent, tmp_path, monkeypatch):
         monkeypatch.setenv("HERMES_HOME", str(tmp_path / ".hermes"))
         (tmp_path / ".hermes").mkdir()

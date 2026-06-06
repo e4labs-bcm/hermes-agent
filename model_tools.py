@@ -911,6 +911,24 @@ def handle_function_call(
     if not isinstance(function_args, dict):
         function_args = {}
 
+    if enabled_tools is not None and function_name not in set(enabled_tools):
+        error_message = f"Tool '{function_name}' is not available in this session."
+        result = json.dumps({"error": error_message}, ensure_ascii=False)
+        _emit_post_tool_call_hook(
+            function_name=function_name,
+            function_args=function_args,
+            result=result,
+            task_id=task_id,
+            session_id=session_id,
+            tool_call_id=tool_call_id,
+            turn_id=turn_id,
+            api_request_id=api_request_id,
+            status="blocked",
+            error_type="tool_scope_block",
+            error_message=error_message,
+        )
+        return result
+
     # ── Tool Search bridge dispatch ──────────────────────────────────
     # tool_search and tool_describe are pure catalog reads — handle them
     # inline. tool_call is unwrapped to the underlying tool so that every

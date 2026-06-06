@@ -55,5 +55,24 @@ def test_erp_tool_handler_fails_closed_without_runtime_context():
     assert payload["error"] == "agent_builder_runtime_context_required"
 
 
+def test_erp_tool_handler_audits_non_object_args(tmp_path):
+    runtime_context = make_runtime_tool_context(tmp_path)
+    token = agent_builder_tool_context.set(runtime_context)
+    try:
+        entry = registry.get_entry("erp_get_customer")
+        assert entry is not None
+        payload = json.loads(entry.handler(["not", "an", "object"]))
+    finally:
+        agent_builder_tool_context.reset(token)
+
+    assert payload["error"] == "invalid_tool_args"
+    assert payload["detail"] == "args_must_be_object"
+    events = runtime_context["audit"].read_events()
+    assert len(events) == 1
+    assert events[0]["tool_name"] == "erp_get_customer"
+    assert events[0]["status"] == "failed"
+    assert events[0]["args_redacted"] == {"arg_type": "list"}
+
+
 def test_agent_builder_erp_read_toolset_resolves_only_erp_tools():
     assert resolve_toolset("agent_builder_erp_read") == ["erp_get_customer", "erp_list_orders"]
