@@ -403,6 +403,8 @@ def test_adk_permitted_request_and_audit_projection(tmp_path):
             "agent_builder.api.audit_events",
             "--audit-path",
             response["audit_event_path"],
+            "--session-key",
+            response["session_key"],
             "--run-id",
             response["hermes_run_id"],
         ],
